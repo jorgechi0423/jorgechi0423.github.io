@@ -1,2 +1,2 @@
-# jorgechi0423.github.io
+# JorgeChi's Homepage
 About some movies and literature
