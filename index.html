@@ -1,28 +1,40 @@
+<!--
+ * 博客首页 — 安静文艺极简风格
+ * 纯静态 SPA：HTML + CSS + JS
+ * 路由：hash-based，文章内容由 marked.js 渲染
+ *
+ * 导航：
+ *   / → 首页（文章列表 + 搜索）
+ *   /archive → 归档（按时间线浏览）
+ *   /tags → 标签分类
+ *   /about → 关于页
+ *   /post/:id → 文章详情
+-->
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>BLOG // 我的博客</title>
+  <title>BLOG · 我的博客</title>
   <link rel="stylesheet" href="style.css">
-  <!-- highlight.js 代码高亮主题 -->
+  <!-- highlight.js 代码高亮主题（使用柔和主题匹配莫兰迪风格） -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
   <!-- marked.js Markdown 解析 -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
 </head>
 <body>
-  <!-- 粒子背景 -->
-  <canvas id="particlesCanvas"></canvas>
 
   <!-- 导航栏 -->
   <header class="header">
     <div class="container header-inner">
-      <a href="#/" class="logo">◈ BLOG</a>
+      <a href="#/" class="logo">BLOG</a>
       <nav class="nav">
-        <a href="#/" class="nav-link" data-route="/">~/home</a>
-        <a href="#/about" class="nav-link" data-route="/about">~/about</a>
-        <button id="themeToggle" class="theme-btn" title="切换主题">🌙</button>
+        <a href="#/" class="nav-link" data-route="/">首页</a>
+        <a href="#/archive" class="nav-link" data-route="/archive">归档</a>
+        <a href="#/tags" class="nav-link" data-route="/tags">标签</a>
+        <a href="#/about" class="nav-link" data-route="/about">关于</a>
+        <button id="themeToggle" class="theme-btn" title="切换深浅色模式">🌙</button>
       </nav>
       <button class="menu-btn" id="menuBtn" title="菜单">☰</button>
     </div>
@@ -30,20 +42,29 @@
 
   <!-- 移动端菜单 -->
   <div class="mobile-menu" id="mobileMenu">
-    <a href="#/" class="nav-link" data-route="/">~/home</a>
-    <a href="#/about" class="nav-link" data-route="/about">~/about</a>
+    <a href="#/" class="nav-link" data-route="/">首页</a>
+    <a href="#/archive" class="nav-link" data-route="/archive">归档</a>
+    <a href="#/tags" class="nav-link" data-route="/tags">标签</a>
+    <a href="#/about" class="nav-link" data-route="/about">关于</a>
   </div>
 
   <!-- 主内容区 -->
   <main class="main container" id="app">
-    <!-- 动态渲染 -->
+    <!-- 骨架屏占位（首次加载时显示，数据准备好后替换） -->
+    <div id="skeletonRoot"></div>
   </main>
+
+  <!-- 文章侧边悬浮目录 TOC（桌面端可见） -->
+  <aside class="toc-container" id="tocContainer">
+    <div class="toc-title">目录</div>
+    <ul class="toc-list" id="tocList"></ul>
+  </aside>
 
   <!-- 页脚 -->
   <footer class="footer">
     <div class="container footer-inner">
       <div class="footer-left">
-        <p>© 2026 BLOG // Powered by Code & Coffee</p>
+        <p>© 2026 BLOG · 安静写作</p>
       </div>
       <div class="footer-right" id="busuanziContainer">
         <span class="stat-item">👁 <span id="busuanzi_value_site_pv">-</span> views</span>
@@ -54,6 +75,8 @@
 
   <!-- 不蒜子 访问统计 -->
   <script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+  <!-- 文章索引（由 build.js 自动生成） -->
+  <script src="posts-data.js"></script>
   <script src="script.js"></script>
 </body>
 </html>

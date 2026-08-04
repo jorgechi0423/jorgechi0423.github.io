@@ -1,3 +1,23 @@
+/*
+ * 博客脚本 — 安静文艺极简风格
+ *
+ * 功能模块：
+ *   1. 主题管理（深色/浅色切换，localStorage 持久化）
+ *   2. 路由（hash-based SPA，含首页/归档/标签/关于/文章详情/404）
+ *   3. 搜索（实时筛选文章标题、摘要、标签）
+ *   4. 侧边悬浮目录 TOC（IntersectionObserver 跟踪当前章节）
+ *   5. 骨架屏（首次加载避免空白闪烁）
+ *   6. Giscus 评论系统（GitHub Discussions 集成）
+ *   7. 代码高亮 + 复制按钮
+ *
+ * 数据来源：posts-data.js（由 node build.js 扫描 articles_*/ 分类目录生成）
+ *
+ * 分类系统：
+ *   文章按目录自动归类：articles_tech(技术) / articles_literature(文学) /
+ *   articles_movies(电影) / articles_essays(随笔) / articles_novels(小说)
+ *   首页可通过分类筛选栏快速切换浏览
+ */
+
 /* ==========================================
    配置：Giscus 评论系统
    使用前请按以下步骤设置：
@@ -13,145 +33,25 @@ const GISCUS_CONFIG = {
   repoId: "YOUR_REPO_ID",           // ← 从 giscus.app 获取
   category: "Announcements",         // ← 一般用 "Announcements" 或 "General"
   categoryId: "YOUR_CATEGORY_ID",   // ← 从 giscus.app 获取
-  mapping: "pathname",              // 用页面路径关联评论
+  mapping: "pathname",
   strict: "0",
   reactionsEnabled: "1",
   emitMetadata: "0",
   inputPosition: "bottom",
-  theme: "dark",                    // 默认深色，加载时会自动切换
+  theme: "dark",
   lang: "zh-CN",
 };
 
 /* ==========================================
-   粒子网络背景
+   文章数据 — 由 build.js 扫描 articles/ 生成 posts-data.js
+   在 articles/ 下新建 .md → node build.js → 自动更新索引
    ========================================== */
-function initParticles() {
-  const canvas = document.getElementById('particlesCanvas');
-  const ctx = canvas.getContext('2d');
+const posts = (typeof postsData !== 'undefined') ? postsData : [];
 
-  let particles = [];
-  const PARTICLE_COUNT = 70;
-  const CONNECT_DIST = 140;
-  const MOUSE_RADIUS = 180;
-
-  let mouse = { x: -1000, y: -1000 };
-  let animFrame;
-
-  function resize() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-  }
-  resize();
-  window.addEventListener('resize', resize);
-
-  document.addEventListener('mousemove', (e) => {
-    mouse.x = e.clientX;
-    mouse.y = e.clientY;
-  });
-  document.addEventListener('mouseleave', () => {
-    mouse.x = -1000;
-    mouse.y = -1000;
-  });
-
-  function getColors() {
-    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
-    return {
-      particle: isLight ? 'rgba(0,119,238,0.55)' : 'rgba(0,229,255,0.55)',
-      line: isLight ? 'rgba(0,119,238,0.12)' : 'rgba(0,229,255,0.10)',
-      lineNear: isLight ? 'rgba(0,119,238,0.3)' : 'rgba(0,229,255,0.28)',
-    };
-  }
-
-  function createParticles() {
-    particles = [];
-    for (let i = 0; i < PARTICLE_COUNT; i++) {
-      particles.push({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
-        vx: (Math.random() - 0.5) * 0.6,
-        vy: (Math.random() - 0.5) * 0.6,
-        radius: Math.random() * 2 + 1,
-        pulse: Math.random() * Math.PI * 2,
-      });
-    }
-  }
-  createParticles();
-  window.addEventListener('resize', createParticles);
-
-  function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const colors = getColors();
-
-    for (let i = 0; i < particles.length; i++) {
-      const p = particles[i];
-      p.x += p.vx;
-      p.y += p.vy;
-      if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
-      if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
-      p.pulse += 0.015;
-      const pulseR = p.radius + Math.sin(p.pulse) * 0.6;
-
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, pulseR, 0, Math.PI * 2);
-      ctx.fillStyle = colors.particle;
-      ctx.fill();
-
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, pulseR + 2, 0, Math.PI * 2);
-      ctx.fillStyle = colors.particle.replace('0.55', '0.12');
-      ctx.fill();
-    }
-
-    for (let i = 0; i < particles.length; i++) {
-      for (let j = i + 1; j < particles.length; j++) {
-        const dx = particles[i].x - particles[j].x;
-        const dy = particles[i].y - particles[j].y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < CONNECT_DIST) {
-          ctx.beginPath();
-          ctx.moveTo(particles[i].x, particles[i].y);
-          ctx.lineTo(particles[j].x, particles[j].y);
-          ctx.strokeStyle = colors.line;
-          ctx.lineWidth = 0.5;
-          ctx.stroke();
-        }
-      }
-    }
-
-    for (let i = 0; i < particles.length; i++) {
-      const p = particles[i];
-      const dx = p.x - mouse.x;
-      const dy = p.y - mouse.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist < MOUSE_RADIUS) {
-        const alpha = (1 - dist / MOUSE_RADIUS) * 0.5;
-        ctx.beginPath();
-        ctx.moveTo(p.x, p.y);
-        ctx.lineTo(mouse.x, mouse.y);
-        ctx.strokeStyle = colors.lineNear;
-        ctx.lineWidth = 0.7;
-        ctx.stroke();
-        const force = (1 - dist / MOUSE_RADIUS) * 0.03;
-        p.vx += dx * force;
-        p.vy += dy * force;
-      }
-    }
-
-    for (let i = 0; i < particles.length; i++) {
-      particles[i].vx *= 0.999;
-      particles[i].vy *= 0.999;
-      const speed = Math.sqrt(particles[i].vx ** 2 + particles[i].vy ** 2);
-      if (speed > 1.2) {
-        particles[i].vx *= 0.98;
-        particles[i].vy *= 0.98;
-      }
-    }
-
-    animFrame = requestAnimationFrame(draw);
-  }
-
-  draw();
-}
+/* ==========================================
+   全局状态
+   ========================================== */
+let tocObserver = null; // IntersectionObserver for TOC scroll tracking
 
 /* ==========================================
    配置 marked.js + highlight.js
@@ -159,64 +59,40 @@ function initParticles() {
 function initMarked() {
   if (typeof marked === 'undefined') return;
 
-  marked.setOptions({
-    gfm: true,
-    breaks: true,
-  });
+  marked.setOptions({ gfm: true, breaks: true });
 
-  // 配置 highlight.js 作为代码高亮引擎
   if (typeof hljs !== 'undefined') {
     marked.setOptions({
       highlight: function (code, lang) {
         if (lang && hljs.getLanguage(lang)) {
-          try {
-            return hljs.highlight(code, { language: lang }).value;
-          } catch (e) { /* fall through */ }
+          try { return hljs.highlight(code, { language: lang }).value; } catch (e) {}
         }
-        // 自动检测语言
-        try {
-          return hljs.highlightAuto(code).value;
-        } catch (e) {
+        try { return hljs.highlightAuto(code).value; } catch (e) {
           return escapeHtml(code);
         }
       },
     });
   }
 
-  // 重写 renderer 以包装代码块（添加复制按钮）
+  // 自定义 renderer：为代码块包裹容器 + 复制按钮
   const renderer = new marked.Renderer();
-  const originalCode = renderer.code.bind(renderer);
-
   renderer.code = function (code, language) {
     const langClass = language ? ` language-${language}` : '';
-    const langLabel = language || 'code';
-
-    // 先高亮
     let highlighted;
     if (typeof hljs !== 'undefined') {
       if (language && hljs.getLanguage(language)) {
-        try {
-          highlighted = hljs.highlight(code, { language }).value;
-        } catch (e) {
-          highlighted = escapeHtml(code);
-        }
+        try { highlighted = hljs.highlight(code, { language }).value; } catch (e) { highlighted = escapeHtml(code); }
       } else {
-        try {
-          highlighted = hljs.highlightAuto(code).value;
-        } catch (e) {
-          highlighted = escapeHtml(code);
-        }
+        try { highlighted = hljs.highlightAuto(code).value; } catch (e) { highlighted = escapeHtml(code); }
       }
     } else {
       highlighted = escapeHtml(code);
     }
-
     return `<div class="code-block-wrapper">` +
-      `<button class="copy-btn" onclick="copyCode(this)" title="复制代码">[ copy ]</button>` +
+      `<button class="copy-btn" onclick="copyCode(this)" title="复制代码">复制</button>` +
       `<pre class="hljs${langClass}"><code class="hljs${langClass}">${highlighted}</code></pre>` +
       `</div>`;
   };
-
   marked.use({ renderer });
 }
 
@@ -226,14 +102,10 @@ function initMarked() {
 function copyCode(btn) {
   const code = btn.nextElementSibling.querySelector('code').textContent;
   navigator.clipboard.writeText(code).then(() => {
-    btn.textContent = '[ copied! ]';
+    btn.textContent = '已复制';
     btn.classList.add('copied');
-    setTimeout(() => {
-      btn.textContent = '[ copy ]';
-      btn.classList.remove('copied');
-    }, 2000);
+    setTimeout(() => { btn.textContent = '复制'; btn.classList.remove('copied'); }, 2000);
   }).catch(() => {
-    // fallback
     const textarea = document.createElement('textarea');
     textarea.value = code;
     textarea.style.position = 'fixed';
@@ -242,12 +114,9 @@ function copyCode(btn) {
     textarea.select();
     document.execCommand('copy');
     document.body.removeChild(textarea);
-    btn.textContent = '[ copied! ]';
+    btn.textContent = '已复制';
     btn.classList.add('copied');
-    setTimeout(() => {
-      btn.textContent = '[ copy ]';
-      btn.classList.remove('copied');
-    }, 2000);
+    setTimeout(() => { btn.textContent = '复制'; btn.classList.remove('copied'); }, 2000);
   });
 }
 
@@ -255,20 +124,21 @@ function copyCode(btn) {
    工具函数
    ========================================== */
 function escapeHtml(text) {
-  const map = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;'
-  };
+  const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
   return text.replace(/[&<>"']/g, c => map[c]);
 }
 
 function formatDate(dateStr) {
   const date = new Date(dateStr);
-  const opts = { year: 'numeric', month: 'long', day: 'numeric' };
-  return date.toLocaleDateString('zh-CN', opts);
+  return date.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+function formatDateShort(dateStr) {
+  const date = new Date(dateStr);
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 function estimateReadTime(content) {
@@ -277,11 +147,23 @@ function estimateReadTime(content) {
   return Math.max(1, Math.ceil(chars / 400));
 }
 
+/* —— 从文章数据中提取所有分类（去重，按文章数量降序） —— */
+function getCategories() {
+  const countMap = {};
+  posts.forEach(p => {
+    const cat = p.category || '未分类';
+    countMap[cat] = (countMap[cat] || 0) + 1;
+  });
+  return Object.entries(countMap)
+    .sort((a, b) => b[1] - a[1])
+    .map(([name, count]) => ({ name, count }));
+}
+
 function mdToHtml(md) {
   if (typeof marked !== 'undefined') {
     return marked.parse(md);
   }
-  // fallback: basic Markdown → HTML
+  // 降级方案：基础 Markdown → HTML
   return md
     .replace(/### (.+)/g, '<h3>$1</h3>')
     .replace(/## (.+)/g, '<h2>$1</h2>')
@@ -289,288 +171,6 @@ function mdToHtml(md) {
     .replace(/\n\n/g, '</p><p>')
     .replace(/^(.+)$/gm, '<p>$1</p>');
 }
-
-/* ==========================================
-   博客文章数据（Markdown 格式）
-   ========================================== */
-const posts = [
-  {
-    id: "hello-world",
-    title: "你好，世界！这是我的第一篇博客",
-    date: "2026-07-20",
-    tags: ["生活", "随笔"],
-    excerpt: "欢迎来到我的个人博客！这是我在互联网上的一片小天地，记录生活、技术和思考。",
-    content: `你好！欢迎来到我的个人博客 👋
-
-搭建一个属于自己的博客是我一直以来的小目标。在这个信息爆炸的时代，拥有一个安静、属于自己的表达空间，是一件很珍贵的事情。
-
-## 为什么写博客？
-
-写作是最好的思考方式。当你把想法写下来的时候，你会发现自己真正理解了多少，又有多少还需要深入学习。
-
-这个博客会记录：
-
-- 日常的技术学习心得
-- 读过的好书和感悟
-- 生活中的有趣发现
-- 对世界的观察与思考
-
-## 关于这个网站
-
-这个博客是用纯 HTML、CSS 和 JavaScript 构建的。没有使用任何框架，简洁轻量，加载速度飞快。支持深色模式和浅色模式切换，在移动端也能获得良好的阅读体验。
-
-> "种一棵树最好的时间是十年前，其次是现在。" —— 非洲谚语
-
-希望我能坚持写下去。也欢迎你常来看看！`
-  },
-  {
-    id: "javascript-tips",
-    title: "10 个实用的 JavaScript 小技巧",
-    date: "2026-07-25",
-    tags: ["技术", "JavaScript"],
-    excerpt: "分享一些在日常开发中非常实用的 JavaScript 技巧，让你的代码更简洁优雅。",
-    content: `JavaScript 是一门充满惊喜的语言。这里整理了一些我在日常开发中经常用到的小技巧，希望能帮到你。
-
-## 1. 解构赋值简化代码
-
-解构赋值可以让你从对象或数组中提取值，赋值给变量。这在处理函数参数时特别有用：
-
-\`\`\`javascript
-const user = { name: '小明', age: 25, city: '北京' };
-const { name, age } = user;
-console.log(name); // 小明
-\`\`\`
-
-## 2. 可选链操作符 ( ?. )
-
-访问深层嵌套的对象属性时，不用再写一堆 \`&&\` 判断了：
-
-\`\`\`javascript
-const city = user?.address?.city ?? '未知';
-// 等价于 user && user.address && user.address.city || '未知'
-\`\`\`
-
-## 3. 模板字符串
-
-使用反引号可以轻松拼接字符串和多行文本，嵌入变量也非常方便。
-
-\`\`\`javascript
-const name = '小明';
-console.log(\`你好，\${name}！欢迎回来。\`);
-\`\`\`
-
-## 4. 数组方法：map / filter / reduce
-
-这三个方法是函数式编程的核心，熟练掌握后可以大大减少代码量。
-
-\`\`\`javascript
-const nums = [1, 2, 3, 4, 5];
-const doubled = nums.map(n => n * 2);   // [2, 4, 6, 8, 10]
-const evens = nums.filter(n => n % 2 === 0); // [2, 4]
-const sum = nums.reduce((a, b) => a + b, 0); // 15
-\`\`\`
-
-## 5. 展开运算符
-
-\`...\` 运算符可以轻松合并数组和对象，或者在函数调用中展开参数。
-
-\`\`\`javascript
-const arr1 = [1, 2, 3];
-const arr2 = [4, 5, 6];
-const merged = [...arr1, ...arr2]; // [1,2,3,4,5,6]
-
-const defaults = { theme: 'dark', lang: 'zh' };
-const userSettings = { lang: 'en' };
-const config = { ...defaults, ...userSettings }; // { theme:'dark', lang:'en' }
-\`\`\`
-
-## 6. 空值合并运算符 ( ?? )
-
-和 \`||\` 不同，\`??\` 只在左侧为 \`null\` 或 \`undefined\` 时才取右侧的值，\`0\` 和空字符串不会被误判。
-
-\`\`\`javascript
-const count = 0;
-console.log(count || 10);  // 10  (可能不是你想要的)
-console.log(count ?? 10);  // 0   (这才是对的)
-\`\`\`
-
-## 7. Promise.all 并行请求
-
-当需要同时发起多个请求时，用 \`Promise.all\` 可以显著提升性能。
-
-\`\`\`javascript
-const [users, posts, comments] = await Promise.all([
-  fetch('/api/users').then(r => r.json()),
-  fetch('/api/posts').then(r => r.json()),
-  fetch('/api/comments').then(r => r.json()),
-]);
-\`\`\`
-
-## 8. 对象简写
-
-当属性名和变量名相同时，可以直接简写。
-
-\`\`\`javascript
-const name = '小明';
-const age = 25;
-const user = { name, age }; // 而不是 { name: name, age: age }
-\`\`\`
-
-## 9. 动态属性名
-
-可以用方括号在对象字面量中使用变量作为属性名。
-
-\`\`\`javascript
-const key = 'favoriteColor';
-const user = {
-  name: '小明',
-  [key]: 'blue', // 动态属性名
-};
-\`\`\`
-
-## 10. console.table
-
-在调试数组或对象数据时，\`console.table()\` 比 \`console.log()\` 更直观。
-
-\`\`\`javascript
-const users = [
-  { name: '小明', age: 25, city: '北京' },
-  { name: '小红', age: 23, city: '上海' },
-];
-console.table(users);
-// 以表格形式打印，一目了然
-\`\`\`
-
----
-
-这些技巧虽然基础，但每天都会用到。熟能生巧，共勉！`
-  },
-  {
-    id: "building-blog",
-    title: "我是如何搭建这个博客的",
-    date: "2026-07-30",
-    tags: ["技术", "Web", "教程"],
-    excerpt: "从零开始构建一个轻量级个人博客的全过程，包含设计思路和技术选型。",
-    content: `这个博客从构思到完成只花了一个下午的时间。下面分享一下整个过程。
-
-## 技术选型
-
-我选择了一个极简的技术栈：
-
-- **纯 HTML**：结构清晰，语义化标签
-- **CSS 自定义属性**：实现深色/浅色主题切换
-- **原生 JavaScript**：实现前端路由和页面渲染
-- **marked.js**：Markdown 渲染引擎
-- **highlight.js**：代码语法高亮
-
-没有 Webpack、没有 React、没有数据库。所有文章以 JavaScript 对象的形式存储，页面通过 hash 路由切换。
-
-## 设计原则
-
-1. **内容优先**：排版清晰，阅读体验好
-2. **响应式**：在手机和电脑上都有好的表现
-3. **可访问性**：语义化 HTML，支持键盘导航
-4. **性能**：零框架依赖，首屏加载极快
-
-## 主题切换
-
-使用 CSS 自定义属性（CSS Variables）实现主题切换。定义两套颜色变量，通过切换 \`data-theme\` 属性在深浅色之间切换。用户的选择会保存在 \`localStorage\` 中，下次访问自动应用。
-
-\`\`\`css
-:root {
-  --bg: #050510;
-  --accent: #00e5ff;
-}
-
-[data-theme="light"] {
-  --bg: #f0f4f8;
-  --accent: #0077ee;
-}
-\`\`\`
-
-## 路由设计
-
-使用 hash 路由（\`#/path\`），监听 \`hashchange\` 事件来切换页面内容。这种方式兼容性好，不需要服务器配置。
-
-\`\`\`javascript
-function router() {
-  const route = window.location.hash.slice(1) || '/';
-  const postMatch = route.match(/^\\/post\\/(.+)$/);
-  // 根据路由渲染不同页面
-}
-\`\`\`
-
-## 插件集成
-
-这个博客还集成了几个实用的功能：
-
-| 功能 | 方案 | 说明 |
-|------|------|------|
-| 评论 | Giscus | 基于 GitHub Discussions，免费无后端 |
-| 搜索 | 原生 JS | 实时筛选标题和标签 |
-| 统计 | 不蒜子 | 轻量访问计数 |
-
-> 简单就是美。少即是多。
-
-如果你也想搭建自己的博客，希望这篇文章能给你一些启发。`
-  },
-  {
-    id: "reading-notes-2026",
-    title: "2026 上半年读书笔记",
-    date: "2026-08-01",
-    tags: ["阅读", "生活"],
-    excerpt: "回顾上半年读过的几本好书，记录一些思考和收获。",
-    content: `2026年上半年读了不少书，挑几本印象深刻的记录一下。
-
-## 《原子习惯》
-
-这本书讲的是微小习惯如何带来巨大改变。核心观点是：**不要追求目标，而要建立系统**。每天进步 1%，一年后你会是现在的 37 倍。
-
-最有启发的概念是「习惯叠加」——在已有的习惯后面叠加新习惯，让新习惯更容易坚持。
-
-> 你不应该专注于目标，而应该专注于系统。目标关乎你想要达到的结果，系统关乎你通往结果的日常过程。
-
-## 《思考，快与慢》
-
-诺贝尔经济学奖得主丹尼尔·卡尼曼的经典之作。书中区分了两种思维模式：
-
-- **系统 1**：快速、直觉、自动
-- **系统 2**：慢速、理性、需要努力
-
-理解这两种模式如何影响我们的决策，对于提高判断力非常有帮助。
-
-## 《重构》
-
-Martin Fowler 的经典技术书。虽然是写给程序员的，但其中的很多思想——比如**小步前进**、**持续改进**——适用于任何领域。
-
-\`\`\`javascript
-// 重构前
-function getPrice(quantity, itemPrice) {
-  return quantity * itemPrice -
-    Math.max(0, quantity - 500) * itemPrice * 0.05 +
-    Math.min(quantity * itemPrice * 0.1, 100);
-}
-
-// 重构后
-function getPrice(quantity, itemPrice) {
-  const basePrice = quantity * itemPrice;
-  const discount = getDiscount(quantity, itemPrice);
-  const shipping = Math.min(basePrice * 0.1, 100);
-  return basePrice - discount + shipping;
-}
-\`\`\`
-
-好的代码是写给人看的。
-
-## 《人类简史》
-
-尤瓦尔·赫拉利从认知革命讲到科学革命，用宏大的视角审视人类历史。读完之后会对「我们是谁、我们从哪里来」有新的理解。
-
----
-
-读书是性价比最高的投资。下半年继续加油 📚`
-  }
-];
 
 /* ==========================================
    主题管理
@@ -594,7 +194,6 @@ function toggleTheme() {
     localStorage.removeItem('blog-theme');
   }
   updateThemeIcon();
-  // 刷新 Giscus 主题
   updateGiscusTheme();
 }
 
@@ -612,7 +211,6 @@ function getCurrentTheme() {
    Giscus 评论系统
    ========================================== */
 function loadGiscus() {
-  // 检查是否已配置
   if (GISCUS_CONFIG.owner === 'YOUR_GITHUB_USERNAME') {
     const container = document.getElementById('giscusContainer');
     if (container) {
@@ -629,7 +227,6 @@ function loadGiscus() {
     return;
   }
 
-  // 移除旧的 Giscus
   const oldGiscus = document.querySelector('.giscus');
   if (oldGiscus) oldGiscus.innerHTML = '';
 
@@ -659,12 +256,38 @@ function loadGiscus() {
 function updateGiscusTheme() {
   const iframe = document.querySelector('.giscus iframe');
   if (iframe) {
-    const theme = getCurrentTheme() === 'light' ? 'light' : 'dark';
     iframe.contentWindow.postMessage(
-      { giscus: { setConfig: { theme } } },
+      { giscus: { setConfig: { theme: getCurrentTheme() === 'light' ? 'light' : 'dark' } } },
       'https://giscus.app'
     );
   }
+}
+
+/* ==========================================
+   骨架屏 — 首次加载占位，避免页面空白闪烁
+   ========================================== */
+function showSkeleton() {
+  const root = document.getElementById('skeletonRoot');
+  if (!root) return;
+  root.innerHTML = `
+    <div>
+      <div class="skeleton-block title" style="height:1.8rem;width:45%;margin-bottom:8px;"></div>
+      <div class="skeleton-block meta" style="height:0.9rem;width:30%;margin-bottom:28px;"></div>
+    </div>
+    ${[1, 2, 3].map(() => `
+      <div class="skeleton-card">
+        <div class="skeleton-block title" style="height:1.3rem;width:55%;margin-bottom:10px;"></div>
+        <div class="skeleton-block meta" style="height:0.85rem;width:35%;margin-bottom:10px;"></div>
+        <div class="skeleton-block excerpt" style="height:0.9rem;width:100%;margin-bottom:8px;"></div>
+        <div class="skeleton-block excerpt" style="height:0.9rem;width:70%;margin-bottom:0;"></div>
+      </div>
+    `).join('')}
+  `;
+}
+
+function hideSkeleton() {
+  const root = document.getElementById('skeletonRoot');
+  if (root) root.innerHTML = '';
 }
 
 /* ==========================================
@@ -682,23 +305,37 @@ function navigate(path) {
 function router() {
   const route = getRoute();
   const app = document.getElementById('app');
+  hideSkeleton();
 
-  // 更新导航高亮
+  // 高亮当前导航链接
   document.querySelectorAll('.nav-link').forEach(link => {
-    link.classList.toggle('active', link.dataset.route === route);
+    const linkRoute = link.dataset.route;
+    // 对 /post/ 路径特殊处理：不高亮任何导航项
+    if (route.startsWith('/post/')) {
+      link.classList.remove('active');
+    } else {
+      link.classList.toggle('active', linkRoute === route);
+    }
   });
 
+  // 关闭移动端菜单
   document.getElementById('mobileMenu').classList.remove('open');
 
-  // 匹配路由
+  // 销毁旧的 TOC observer
+  destroyToc();
+
   const postMatch = route.match(/^\/post\/(.+)$/);
 
   if (route === '/' || route === '') {
     renderHome(app);
-  } else if (postMatch) {
-    renderPost(app, postMatch[1]);
+  } else if (route === '/archive') {
+    renderArchive(app);
+  } else if (route === '/tags') {
+    renderTags(app);
   } else if (route === '/about') {
     renderAbout(app);
+  } else if (postMatch) {
+    renderPost(app, postMatch[1]);
   } else {
     render404(app);
   }
@@ -707,51 +344,96 @@ function router() {
 }
 
 /* ==========================================
-   搜索功能
+   分类筛选栏 — 点击切换分类，联动搜索框
    ========================================== */
+function initCategoryFilter() {
+  const filterItems = document.querySelectorAll('.category-filter-item');
+  if (filterItems.length === 0) return;
+
+  // 获取当前搜索框的值（如果有的话）
+  const searchInput = document.getElementById('searchInput');
+
+  filterItems.forEach(item => {
+    item.addEventListener('click', function () {
+      const category = this.dataset.category;
+
+      // 更新高亮状态
+      filterItems.forEach(el => el.classList.remove('active'));
+      this.classList.add('active');
+
+      // 清除搜索框内容（分类筛选与文本搜索互斥）
+      if (searchInput) {
+        searchInput.value = '';
+        // 触发 clear 按钮隐藏
+        const clearBtn = document.getElementById('searchClear');
+        if (clearBtn) clearBtn.classList.remove('visible');
+      }
+
+      // 筛选文章卡片
+      applyFilters(category, searchInput ? searchInput.value : '');
+    });
+  });
+}
+
+/* —— 统一筛选逻辑：分类 + 文本搜索的组合过滤 —— */
+function applyFilters(category, query) {
+  const cards = document.querySelectorAll('.post-card');
+  const noResults = document.getElementById('noResults');
+  const postList = document.getElementById('postList');
+  const q = (query || '').trim().toLowerCase();
+
+  let visibleCount = 0;
+  cards.forEach(card => {
+    const cardCat = (card.dataset.category || '').toLowerCase();
+    const title = (card.dataset.title || '').toLowerCase();
+    const excerpt = (card.dataset.excerpt || '').toLowerCase();
+    const tags = (card.dataset.tags || '').toLowerCase();
+
+    const matchCategory = !category || cardCat === category.toLowerCase();
+    const matchText = !q || title.includes(q) || excerpt.includes(q) || tags.includes(q) || cardCat.includes(q);
+
+    if (matchCategory && matchText) {
+      card.style.display = '';
+      visibleCount++;
+    } else {
+      card.style.display = 'none';
+    }
+  });
+
+  if (noResults && postList) {
+    if (visibleCount === 0) {
+      noResults.style.display = 'block';
+      postList.style.display = 'none';
+    } else {
+      noResults.style.display = 'none';
+      postList.style.display = '';
+    }
+  }
+}
 function initSearch() {
   const input = document.getElementById('searchInput');
   if (!input) return;
 
   input.addEventListener('input', function () {
     const query = this.value.trim().toLowerCase();
-    const cards = document.querySelectorAll('.post-card');
-    const noResults = document.getElementById('noResults');
     const clearBtn = document.getElementById('searchClear');
-    const postList = document.getElementById('postList');
+    if (clearBtn) clearBtn.classList.toggle('visible', query.length > 0);
 
-    // 清除按钮显示/隐藏
-    if (clearBtn) {
-      clearBtn.classList.toggle('visible', query.length > 0);
+    // 用户输入搜索文字时，自动切换到「全部」分类以展示完整结果
+    if (query.length > 0) {
+      const filterItems = document.querySelectorAll('.category-filter-item');
+      filterItems.forEach(el => el.classList.remove('active'));
+      const allBtn = document.querySelector('.category-filter-item[data-category=""]');
+      if (allBtn) allBtn.classList.add('active');
     }
 
-    let visibleCount = 0;
+    // 获取当前激活的分类筛选
+    const activeFilter = document.querySelector('.category-filter-item.active');
+    const category = (activeFilter && activeFilter.dataset.category) ? activeFilter.dataset.category : '';
 
-    cards.forEach(card => {
-      const title = (card.dataset.title || '').toLowerCase();
-      const excerpt = (card.dataset.excerpt || '').toLowerCase();
-      const tags = (card.dataset.tags || '').toLowerCase();
-
-      if (!query || title.includes(query) || excerpt.includes(query) || tags.includes(query)) {
-        card.style.display = '';
-        visibleCount++;
-      } else {
-        card.style.display = 'none';
-      }
-    });
-
-    if (noResults && postList) {
-      if (visibleCount === 0 && query) {
-        noResults.style.display = 'block';
-        postList.style.display = 'none';
-      } else {
-        noResults.style.display = 'none';
-        postList.style.display = '';
-      }
-    }
+    applyFilters(category, query);
   });
 
-  // 清除按钮
   const clearBtn = document.getElementById('searchClear');
   if (clearBtn) {
     clearBtn.addEventListener('click', function () {
@@ -763,52 +445,263 @@ function initSearch() {
 }
 
 /* ==========================================
+   文章侧边悬浮目录 TOC
+   使用 IntersectionObserver 跟踪文章内 h2/h3 标题，
+   当前阅读位置的标题自动高亮。
+   ========================================== */
+function buildToc() {
+  const headings = document.querySelectorAll('.article-content h2, .article-content h3');
+  const tocList = document.getElementById('tocList');
+  const tocContainer = document.getElementById('tocContainer');
+
+  if (!tocList || !tocContainer) return;
+  tocList.innerHTML = '';
+
+  // 如果没有标题或标题太少（少于2个），隐藏 TOC
+  if (headings.length < 2) {
+    tocContainer.classList.remove('visible');
+    return;
+  }
+
+  headings.forEach((heading, index) => {
+    const id = `heading-${index}`;
+    heading.id = id;
+
+    const li = document.createElement('li');
+    li.className = `toc-item ${heading.tagName === 'H3' ? 'toc-h3' : ''}`;
+    li.textContent = heading.textContent;
+    li.dataset.target = id;
+    li.addEventListener('click', () => {
+      heading.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    tocList.appendChild(li);
+  });
+
+  tocContainer.classList.add('visible');
+
+  // 使用 IntersectionObserver 跟踪当前阅读位置
+  const tocItems = tocList.querySelectorAll('.toc-item');
+
+  tocObserver = new IntersectionObserver(
+    (entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const id = entry.target.id;
+          tocItems.forEach(item => {
+            item.classList.toggle('active', item.dataset.target === id);
+          });
+        }
+      });
+    },
+    {
+      rootMargin: '-80px 0px -60% 0px', // 顶部偏移 header，底部触发线在上方
+      threshold: 0,
+    }
+  );
+
+  headings.forEach(h => tocObserver.observe(h));
+}
+
+function destroyToc() {
+  if (tocObserver) {
+    tocObserver.disconnect();
+    tocObserver = null;
+  }
+  const tocContainer = document.getElementById('tocContainer');
+  const tocList = document.getElementById('tocList');
+  if (tocContainer) tocContainer.classList.remove('visible');
+  if (tocList) tocList.innerHTML = '';
+}
+
+/* ==========================================
    渲染函数
    ========================================== */
+
+/* —— 首页：文章列表 + 搜索 + 分类筛选栏 —— */
 function renderHome(app) {
-  const postsHtml = posts
-    .sort((a, b) => new Date(b.date) - new Date(a.date))
-    .map((post, index) => `
+  const sortedPosts = [...posts].sort((a, b) => new Date(b.date) - new Date(a.date));
+  const categories = getCategories();
+
+  // 分类筛选栏 HTML
+  const filterBarHtml = categories.length > 1 ? `
+    <div class="category-filter" id="categoryFilter">
+      <span class="category-filter-item active" data-category="">全部<span class="category-count">${posts.length}</span></span>
+      ${categories.map(c => `
+        <span class="category-filter-item" data-category="${escapeHtml(c.name)}">
+          ${escapeHtml(c.name)}<span class="category-count">${c.count}</span>
+        </span>
+      `).join('')}
+    </div>
+  ` : '';
+
+  // 文章卡片列表
+  const postsHtml = sortedPosts
+    .map((post) => `
       <article class="post-card"
                onclick="navigate('/post/${post.id}')"
+               data-category="${escapeHtml(post.category || '未分类')}"
                data-title="${escapeHtml(post.title)}"
                data-excerpt="${escapeHtml(post.excerpt)}"
-               data-tags="${escapeHtml(post.tags.join(' '))}"
-               style="animation: fadeInUp 0.5s ${index * 0.1}s both;">
-        <h2 class="post-card-title">${escapeHtml(post.title)}</h2>
+               data-tags="${escapeHtml((post.tags || []).join(' '))}">
+        <div class="post-card-header">
+          <h2 class="post-card-title">${escapeHtml(post.title)}</h2>
+          ${post.category ? `<span class="category-badge" data-cat="${escapeHtml(post.category)}">${escapeHtml(post.category)}</span>` : ''}
+        </div>
         <div class="post-meta">
           <span class="post-date">📅 ${formatDate(post.date)}</span>
           <span>·</span>
           <span>🕐 ${estimateReadTime(post.content)} min read</span>
         </div>
         <div class="post-tags">
-          ${post.tags.map(t => `<span class="post-tag"># ${escapeHtml(t)}</span>`).join('')}
+          ${(post.tags || []).map(t => `<span class="post-tag"># ${escapeHtml(t)}</span>`).join('')}
         </div>
         <p class="post-excerpt">${escapeHtml(post.excerpt)}</p>
-        <span class="read-more">[ 阅读更多 → ]</span>
+        <span class="read-more">阅读更多 →</span>
       </article>
     `).join('');
 
   app.innerHTML = `
-    <h1 class="page-title">Latest Posts</h1>
-    <p class="page-subtitle">共 ${posts.length} 篇文章 · 记录技术与生活</p>
+    <h1 class="page-title">文章</h1>
+    <p class="page-subtitle">共 ${posts.length} 篇文章</p>
+    ${filterBarHtml}
     <div class="search-wrapper">
+      <span class="search-icon">🔍</span>
       <input type="text" class="search-input" id="searchInput"
-             placeholder="🔍 搜索文章标题、标签...">
+             placeholder="搜索文章标题、标签...">
       <button class="search-clear" id="searchClear" title="清除">✕</button>
-      <span class="search-icon">⌘K</span>
     </div>
-    <div class="post-list" id="postList">${postsHtml}</div>
+    <div class="post-list" id="postList">${postsHtml || '<p style="text-align:center;color:var(--text-muted);">还没有文章，在对应 articles_*/ 目录下新建 .md 文件吧 ✍️</p>'}</div>
     <div class="no-results" id="noResults" style="display:none;">
       <div class="no-results-icon">⊘</div>
       <p>没有找到匹配的文章</p>
-      <p style="font-size:0.85rem;margin-top:4px;">试试其他关键词？</p>
+      <p style="font-size:0.85rem;margin-top:4px;">试试其他分类或关键词？</p>
     </div>
   `;
 
   initSearch();
+  initCategoryFilter();
 }
 
+/* —— 归档页：按年份分组展示所有文章 —— */
+function renderArchive(app) {
+  const sortedPosts = [...posts].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  if (sortedPosts.length === 0) {
+    app.innerHTML = `
+      <h1 class="page-title">归档</h1>
+      <p class="page-subtitle">时间线</p>
+      <div class="empty-state">
+        <div class="empty-icon">📭</div>
+        <p>还没有文章</p>
+      </div>`;
+    return;
+  }
+
+  // 按年份分组
+  const grouped = {};
+  sortedPosts.forEach(post => {
+    const year = new Date(post.date).getFullYear();
+    if (!grouped[year]) grouped[year] = [];
+    grouped[year].push(post);
+  });
+
+  const years = Object.keys(grouped).sort((a, b) => b - a);
+
+  const archiveHtml = years.map(year => `
+    <div class="archive-year">${year}</div>
+    ${grouped[year].map(post => `
+      <div class="archive-item" onclick="navigate('/post/${post.id}')">
+        <span class="archive-item-date">${formatDateShort(post.date)}</span>
+        <span class="archive-item-title">${escapeHtml(post.title)}</span>
+        <span class="archive-item-tags">
+          ${(post.tags || []).map(t => `<span class="post-tag">${escapeHtml(t)}</span>`).join('')}
+        </span>
+      </div>
+    `).join('')}
+  `).join('');
+
+  app.innerHTML = `
+    <h1 class="page-title">归档</h1>
+    <p class="page-subtitle">共 ${sortedPosts.length} 篇文章 · 按时间排列</p>
+    ${archiveHtml}
+  `;
+}
+
+/* —— 标签页：按标签分类浏览文章 —— */
+function renderTags(app) {
+  const sortedPosts = [...posts].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  if (sortedPosts.length === 0) {
+    app.innerHTML = `
+      <h1 class="page-title">标签</h1>
+      <p class="page-subtitle">分类浏览</p>
+      <div class="empty-state">
+        <div class="empty-icon">🏷️</div>
+        <p>还没有文章</p>
+      </div>`;
+    return;
+  }
+
+  // 收集所有标签及其文章
+  const tagMap = {};
+  sortedPosts.forEach(post => {
+    (post.tags || []).forEach(tag => {
+      if (!tagMap[tag]) tagMap[tag] = [];
+      tagMap[tag].push(post);
+    });
+  });
+
+  const tagNames = Object.keys(tagMap).sort((a, b) => tagMap[b].length - tagMap[a].length);
+
+  // 生成标签云
+  const tagsCloudHtml = tagNames.map(tag => `
+    <span class="tag-cloud-item" data-tag="${escapeHtml(tag)}" onclick="scrollToTag('${escapeHtml(tag)}')">
+      ${escapeHtml(tag)} (${tagMap[tag].length})
+    </span>
+  `).join('');
+
+  // 每个标签下的文章列表
+  const sectionsHtml = tagNames.map(tag => `
+    <div class="tag-section" id="tag-${escapeHtml(tag)}">
+      <div class="tag-section-header"># ${escapeHtml(tag)}</div>
+      ${tagMap[tag].map(post => `
+        <article class="post-card" onclick="navigate('/post/${post.id}')"
+                 data-title="${escapeHtml(post.title)}"
+                 data-excerpt="${escapeHtml(post.excerpt)}"
+                 data-tags="${escapeHtml((post.tags || []).join(' '))}">
+          <h2 class="post-card-title">${escapeHtml(post.title)}</h2>
+          <div class="post-meta">
+            <span class="post-date">📅 ${formatDate(post.date)}</span>
+            <span>·</span>
+            <span>🕐 ${estimateReadTime(post.content)} min read</span>
+          </div>
+          <p class="post-excerpt">${escapeHtml(post.excerpt)}</p>
+        </article>
+      `).join('')}
+    </div>
+  `).join('');
+
+  app.innerHTML = `
+    <h1 class="page-title">标签</h1>
+    <p class="page-subtitle">${tagNames.length} 个标签 · ${sortedPosts.length} 篇文章</p>
+    <div class="tags-cloud">${tagsCloudHtml}</div>
+    ${sectionsHtml}
+  `;
+}
+
+/* —— 标签云点击滚动到对应区域 —— */
+function scrollToTag(tag) {
+  const el = document.getElementById('tag-' + tag);
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // 高亮当前选中的标签
+    document.querySelectorAll('.tag-cloud-item').forEach(item => {
+      item.classList.toggle('active', item.dataset.tag === tag);
+    });
+  }
+}
+
+/* —— 文章详情 —— */
 function renderPost(app, postId) {
   const post = posts.find(p => p.id === postId);
 
@@ -820,25 +713,26 @@ function renderPost(app, postId) {
   const contentHtml = mdToHtml(post.content);
 
   app.innerHTML = `
-    <a href="#/" class="back-link">← cd ..</a>
+    <a href="#/" class="back-link">← 返回首页</a>
     <article>
       <header class="article-header">
         <h1 class="article-title">${escapeHtml(post.title)}</h1>
+        ${post.category ? `<span class="category-badge" style="margin-bottom:10px;display:inline-block;">${escapeHtml(post.category)}</span>` : ''}
         <div class="post-meta">
           <span class="post-date">📅 ${formatDate(post.date)}</span>
           <span>·</span>
           <span>🕐 ${estimateReadTime(post.content)} min read</span>
           <span>·</span>
-          <span id="postPv" style="font-size:0.84rem;"></span>
+          <span id="postPv" style="font-size:0.84rem;">👁 <span id="busuanzi_value_page_pv">-</span> views</span>
         </div>
         <div class="post-tags">
-          ${post.tags.map(t => `<span class="post-tag"># ${escapeHtml(t)}</span>`).join('')}
+          ${(post.tags || []).map(t => `<span class="post-tag" style="cursor:pointer;" onclick="event.stopPropagation();navigate('/tags');setTimeout(()=>scrollToTag('${escapeHtml(t)}'),100);"># ${escapeHtml(t)}</span>`).join('')}
         </div>
       </header>
       <div class="article-content">${contentHtml}</div>
     </article>
     <div style="text-align:center; margin-top: 40px;">
-      <a href="#/" class="back-link">← cd .. 返回首页</a>
+      <a href="#/" class="back-link">← 返回首页</a>
     </div>
     <section class="comments-section">
       <h2 class="comments-title">评论区</h2>
@@ -846,28 +740,21 @@ function renderPost(app, postId) {
     </section>
   `;
 
-  // 加载评论
-  loadGiscus();
+  // 文章渲染完成后构建 TOC
+  setTimeout(buildToc, 50);
 
-  // 文章页阅读量（不蒜子）
-  if (typeof window.busuanzi !== 'undefined' || true) {
-    const postPv = document.getElementById('postPv');
-    if (postPv) {
-      // 不蒜子文章页计数
-      const pageId = post.id;
-      postPv.innerHTML = '👁 <span id="busuanzi_value_page_pv">-</span> views';
-    }
-  }
+  loadGiscus();
 }
 
+/* —— 关于页 —— */
 function renderAbout(app) {
   app.innerHTML = `
-    <h1 class="page-title">About Me</h1>
-    <p class="page-subtitle">whoami</p>
+    <h1 class="page-title">关于</h1>
+    <p class="page-subtitle">关于我和这个博客</p>
     <div class="about-card">
       <div class="about-avatar">👨‍💻</div>
       <h2>你好，我是博主</h2>
-      <p class="about-role">$ Full-Stack Developer / Lifelong Learner</p>
+      <p class="about-role">Full-Stack Developer / Lifelong Learner</p>
       <p>
         我是一名软件开发者，热爱编程、阅读和写作。这个博客是我记录成长、分享知识的地方。
         我相信技术可以让世界变得更美好，而写作是整理思想最好的方式。
@@ -889,29 +776,18 @@ function renderAbout(app) {
   `;
 }
 
+/* —— 404 页面 —— */
 function render404(app) {
   app.innerHTML = `
     <div class="empty-state">
       <div class="empty-icon">⊘</div>
-      <h2>404 — Page Not Found</h2>
-      <p>The requested address does not exist on this server.</p>
+      <h2>404 — 页面不存在</h2>
+      <p>你访问的地址不存在</p>
       <br>
-      <a href="#/" class="read-more">← cd ~/home</a>
+      <a href="#/" class="read-more">← 返回首页</a>
     </div>
   `;
 }
-
-/* ==========================================
-   卡片入场动画
-   ========================================== */
-const fadeInUpStyle = document.createElement('style');
-fadeInUpStyle.textContent = `
-  @keyframes fadeInUp {
-    from { opacity: 0; transform: translateY(24px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-`;
-document.head.appendChild(fadeInUpStyle);
 
 /* ==========================================
    事件绑定 & 初始化
@@ -928,7 +804,7 @@ document.querySelectorAll('.mobile-menu .nav-link').forEach(link => {
   });
 });
 
-// 键盘快捷键：Ctrl+K 聚焦搜索
+// Ctrl+K 聚焦搜索
 document.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
     e.preventDefault();
@@ -939,13 +815,16 @@ document.addEventListener('keydown', (e) => {
 
 window.addEventListener('hashchange', router);
 window.addEventListener('DOMContentLoaded', () => {
-  initParticles();
   initMarked();
   initTheme();
-  router();
+  showSkeleton();
+  // 短暂延迟以确保骨架屏可见，然后渲染实际内容
+  setTimeout(() => {
+    router();
+  }, 80);
 });
 
-// 监听系统主题变化
+// 监听系统主题变化（仅当用户未手动设置时生效）
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
   if (!localStorage.getItem('blog-theme')) {
     if (e.matches) {
