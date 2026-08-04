@@ -10,7 +10,7 @@
  *   6. Giscus 评论系统（GitHub Discussions 集成）
  *   7. 代码高亮 + 复制按钮
  *
- * 数据来源：posts-data.js（由 node build.js 扫描 articles_*/ 分类目录生成）
+ * 数据来源：posts-data.js（由 node build.js 扫描 articles_xx/ 分类目录生成）
  *
  * 分类系统：
  *   文章按目录自动归类：articles_tech(技术) / articles_literature(文学) /
@@ -570,7 +570,7 @@ function renderHome(app) {
              placeholder="搜索文章标题、标签...">
       <button class="search-clear" id="searchClear" title="清除">✕</button>
     </div>
-    <div class="post-list" id="postList">${postsHtml || '<p style="text-align:center;color:var(--text-muted);">还没有文章，在对应 articles_*/ 目录下新建 .md 文件吧 ✍️</p>'}</div>
+    <div class="post-list" id="postList">${postsHtml || '<p style="text-align:center;color:var(--text-muted);">还没有文章，在对应分类目录下新建 .md 文件吧 ✍️</p>'}</div>
     <div class="no-results" id="noResults" style="display:none;">
       <div class="no-results-icon">⊘</div>
       <p>没有找到匹配的文章</p>
