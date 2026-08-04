@@ -536,8 +536,8 @@ function renderHome(app) {
 
   // 文章卡片列表
   const postsHtml = sortedPosts
-    .map((post) => `
-      <article class="post-card"
+    .map((post, index) => `
+      <article class="post-card reveal-up delay-${(index % 6) + 1}"
                onclick="navigate('/post/${post.id}')"
                data-category="${escapeHtml(post.category || '未分类')}"
                data-title="${escapeHtml(post.title)}"
@@ -813,12 +813,58 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+/* ── Header 滚动变色 ── */
+let lastScrollY = 0;
+function updateHeaderScroll() {
+  const header = document.getElementById('siteHeader');
+  if (!header) return;
+  const scrollY = window.scrollY;
+  if (scrollY > 32) {
+    header.classList.add('scrolled');
+  } else {
+    header.classList.remove('scrolled');
+  }
+  lastScrollY = scrollY;
+}
+window.addEventListener('scroll', updateHeaderScroll, { passive: true });
+
+/* ── 入场渐显动画 (IntersectionObserver) ── */
+let revealObserver = null;
+function initRevealAnimations() {
+  // 销毁旧 observer
+  if (revealObserver) revealObserver.disconnect();
+
+  const revealEls = document.querySelectorAll('.reveal-up');
+  if (revealEls.length === 0) return;
+
+  revealObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+      }
+    });
+  }, { threshold: 0.12, rootMargin: '0px 0px -32px 0px' });
+
+  revealEls.forEach(el => revealObserver.observe(el));
+}
+
+/* ── 路由包装：渲染后自动初始化动画 ── */
+const originalRouter = router;
+router = function() {
+  originalRouter();
+  // 渲染完成后初始化入场动画
+  requestAnimationFrame(() => {
+    initRevealAnimations();
+    updateHeaderScroll();
+  });
+};
+
 window.addEventListener('hashchange', router);
 window.addEventListener('DOMContentLoaded', () => {
   initMarked();
   initTheme();
   showSkeleton();
-  // 短暂延迟以确保骨架屏可见，然后渲染实际内容
+  updateHeaderScroll();
   setTimeout(() => {
     router();
   }, 80);
